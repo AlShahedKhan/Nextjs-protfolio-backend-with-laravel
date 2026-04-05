@@ -28,7 +28,7 @@ class LoginRequest extends FormRequest
         return [
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
-            'device_name' => ['required', 'string', 'max:255'],
+            'device_name' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -60,8 +60,31 @@ class LoginRequest extends FormRequest
     {
         $this->merge([
             'email' => Str::lower(trim((string) $this->input('email'))),
-            'device_name' => trim((string) $this->input('device_name')),
+            'device_name' => $this->resolveDeviceName(),
         ]);
+    }
+
+    private function resolveDeviceName(): string
+    {
+        $providedDeviceName = trim((string) $this->input('device_name'));
+
+        if ($providedDeviceName !== '') {
+            return $providedDeviceName;
+        }
+
+        $headerDeviceName = trim((string) $this->header('X-Device-Name'));
+
+        if ($headerDeviceName !== '') {
+            return Str::limit($headerDeviceName, 255, '');
+        }
+
+        $userAgent = preg_replace('/\s+/', ' ', trim((string) $this->userAgent()));
+
+        if (is_string($userAgent) && $userAgent !== '') {
+            return Str::limit($userAgent, 255, '');
+        }
+
+        return 'unknown-device';
     }
 
     private function ensureIsNotRateLimited(): void

@@ -33,6 +33,48 @@ it('allows the seeded demo user to log in and receive a bearer token', function 
     expect($seededUser->tokens()->pluck('name')->all())->toBe(['nextjs-web']);
 });
 
+it('auto-detects the device name from the request when it is not provided', function () {
+    $this->seed();
+
+    $response = $this
+        ->withHeader('User-Agent', 'Next.js Portfolio Frontend')
+        ->postJson('/api/v1/auth/login', [
+            'email' => 'admin@example.com',
+            'password' => 'Password123!',
+        ]);
+
+    $response->assertOk();
+
+    $seededUser = User::query()->firstWhere('email', 'admin@example.com');
+
+    expect($seededUser)->not->toBeNull();
+    expect($seededUser->tokens()->pluck('name')->all())->toBe(['Next.js Portfolio Frontend']);
+});
+
+it('returns the correct method details when login is called with the wrong method', function () {
+    $this->getJson('/api/v1/auth/login')
+        ->assertStatus(405)
+        ->assertHeader('Allow', 'POST')
+        ->assertJson([
+            'message' => 'The GET method is not supported for this route. Use POST.',
+            'wrong_method' => 'GET',
+            'correct_method' => 'POST',
+            'allowed_methods' => ['POST'],
+        ]);
+});
+
+it('returns the preferred method when a protected route is called with the wrong method', function () {
+    $this->postJson('/api/v1/auth/me')
+        ->assertStatus(405)
+        ->assertHeader('Allow', 'GET, HEAD')
+        ->assertJson([
+            'message' => 'The POST method is not supported for this route. Use GET.',
+            'wrong_method' => 'POST',
+            'correct_method' => 'GET',
+            'allowed_methods' => ['GET', 'HEAD'],
+        ]);
+});
+
 it('returns the same generic error for unknown emails and wrong passwords', function () {
     $this->seed();
 
