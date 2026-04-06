@@ -43,7 +43,6 @@ return Application::configure(basePath: dirname(__DIR__))
                     'The %s method is not supported for this route.',
                     strtoupper($request->method()),
                 );
-// 
             return response()->json([
                 'message' => $message,
                 'wrong_method' => strtoupper($request->method()),
