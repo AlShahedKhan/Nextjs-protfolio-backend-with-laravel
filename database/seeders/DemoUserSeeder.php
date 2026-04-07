@@ -8,14 +8,21 @@ use Illuminate\Support\Facades\Hash;
 
 class DemoUserSeeder extends Seeder
 {
+    public const ADMIN_EMAIL = 'admin@test.com';
+
+    public const ADMIN_NAME = 'Portfolio Admin';
+
+    public const ADMIN_PASSWORD = 'Password123!';
+
     public function run(): void
     {
         User::query()->updateOrCreate(
-            ['email' => 'admin@example.com'],
+            ['email' => self::ADMIN_EMAIL],
             [
-                'name' => 'Portfolio Admin',
+                'name' => self::ADMIN_NAME,
                 'email_verified_at' => now(),
-                'password' => Hash::make('Password123!'),
+                'is_admin' => true,
+                'password' => Hash::make(self::ADMIN_PASSWORD),
             ],
         );
     }

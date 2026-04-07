@@ -1,13 +1,14 @@
 <?php
 
 use App\Models\User;
+use Database\Seeders\DemoUserSeeder;
 
 it('allows the seeded demo user to log in and receive a bearer token', function () {
     $this->seed();
 
     $response = $this->postJson('/api/v1/auth/login', [
-        'email' => 'ADMIN@example.com',
-        'password' => 'Password123!',
+        'email' => strtoupper(DemoUserSeeder::ADMIN_EMAIL),
+        'password' => DemoUserSeeder::ADMIN_PASSWORD,
         'device_name' => 'nextjs-web',
     ]);
 
@@ -22,12 +23,12 @@ it('allows the seeded demo user to log in and receive a bearer token', function 
         ->assertJson([
             'token_type' => 'Bearer',
             'user' => [
-                'email' => 'admin@example.com',
+                'email' => DemoUserSeeder::ADMIN_EMAIL,
             ],
         ])
         ->assertJsonMissingPath('user.password');
 
-    $seededUser = User::query()->firstWhere('email', 'admin@example.com');
+    $seededUser = User::query()->firstWhere('email', DemoUserSeeder::ADMIN_EMAIL);
 
     expect($seededUser)->not->toBeNull();
     expect($seededUser->tokens()->pluck('name')->all())->toBe(['nextjs-web']);
@@ -39,13 +40,13 @@ it('auto-detects the device name from the request when it is not provided', func
     $response = $this
         ->withHeader('User-Agent', 'Next.js Portfolio Frontend')
         ->postJson('/api/v1/auth/login', [
-            'email' => 'admin@example.com',
-            'password' => 'Password123!',
+            'email' => DemoUserSeeder::ADMIN_EMAIL,
+            'password' => DemoUserSeeder::ADMIN_PASSWORD,
         ]);
 
     $response->assertOk();
 
-    $seededUser = User::query()->firstWhere('email', 'admin@example.com');
+    $seededUser = User::query()->firstWhere('email', DemoUserSeeder::ADMIN_EMAIL);
 
     expect($seededUser)->not->toBeNull();
     expect($seededUser->tokens()->pluck('name')->all())->toBe(['Next.js Portfolio Frontend']);
@@ -85,7 +86,7 @@ it('returns the same generic error for unknown emails and wrong passwords', func
     ]);
 
     $wrongPassword = $this->postJson('/api/v1/auth/login', [
-        'email' => 'admin@example.com',
+        'email' => DemoUserSeeder::ADMIN_EMAIL,
         'password' => 'WrongPassword123!',
         'device_name' => 'nextjs-web',
     ]);
@@ -102,7 +103,7 @@ it('returns the same generic error for unknown emails and wrong passwords', func
         ->toBe($wrongPassword->json('errors.email.0'))
         ->toBe(trans('auth.failed'));
 
-    $seededUser = User::query()->firstWhere('email', 'admin@example.com');
+    $seededUser = User::query()->firstWhere('email', DemoUserSeeder::ADMIN_EMAIL);
 
     expect($seededUser)->not->toBeNull();
     expect($seededUser->tokens()->count())->toBe(0);
@@ -112,18 +113,18 @@ it('rotates an existing token when the same device logs in again', function () {
     $this->seed();
 
     $firstToken = $this->postJson('/api/v1/auth/login', [
-        'email' => 'admin@example.com',
-        'password' => 'Password123!',
+        'email' => DemoUserSeeder::ADMIN_EMAIL,
+        'password' => DemoUserSeeder::ADMIN_PASSWORD,
         'device_name' => 'nextjs-web',
     ])->assertOk()->json('access_token');
 
     $secondToken = $this->postJson('/api/v1/auth/login', [
-        'email' => 'admin@example.com',
-        'password' => 'Password123!',
+        'email' => DemoUserSeeder::ADMIN_EMAIL,
+        'password' => DemoUserSeeder::ADMIN_PASSWORD,
         'device_name' => 'nextjs-web',
     ])->assertOk()->json('access_token');
 
-    $user = User::query()->firstWhere('email', 'admin@example.com');
+    $user = User::query()->firstWhere('email', DemoUserSeeder::ADMIN_EMAIL);
 
     expect($firstToken)->not->toBe($secondToken);
     expect($user->fresh()->tokens()->where('name', 'nextjs-web')->count())->toBe(1);
@@ -134,14 +135,14 @@ it('rate limits repeated failed login attempts', function () {
 
     foreach (range(1, 5) as $attempt) {
         $this->postJson('/api/v1/auth/login', [
-            'email' => 'admin@example.com',
+            'email' => DemoUserSeeder::ADMIN_EMAIL,
             'password' => 'WrongPassword123!',
             'device_name' => 'nextjs-web',
         ])->assertStatus(422);
     }
 
     $this->postJson('/api/v1/auth/login', [
-        'email' => 'admin@example.com',
+        'email' => DemoUserSeeder::ADMIN_EMAIL,
         'password' => 'WrongPassword123!',
         'device_name' => 'nextjs-web',
     ])->assertStatus(429);
@@ -151,8 +152,8 @@ it('returns the authenticated user for a valid sanctum token', function () {
     $this->seed();
 
     $loginResponse = $this->postJson('/api/v1/auth/login', [
-        'email' => 'admin@example.com',
-        'password' => 'Password123!',
+        'email' => DemoUserSeeder::ADMIN_EMAIL,
+        'password' => DemoUserSeeder::ADMIN_PASSWORD,
         'device_name' => 'nextjs-web',
     ])->assertOk();
 
@@ -161,8 +162,8 @@ it('returns the authenticated user for a valid sanctum token', function () {
         ->assertOk()
         ->assertJson([
             'data' => [
-                'email' => 'admin@example.com',
-                'name' => 'Portfolio Admin',
+                'email' => DemoUserSeeder::ADMIN_EMAIL,
+                'name' => DemoUserSeeder::ADMIN_NAME,
             ],
         ]);
 });
