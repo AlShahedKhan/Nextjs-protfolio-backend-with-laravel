@@ -22,6 +22,7 @@ class StoreProjectRequest extends FormRequest
             'title' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', 'alpha_dash', Rule::unique('projects', 'slug')],
             'description' => ['required', 'string'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'image_url' => ['nullable', 'url', 'max:2048'],
             'technologies' => ['required', 'array', 'min:1'],
             'technologies.*' => ['required', 'string', 'max:100', 'distinct'],
@@ -45,6 +46,7 @@ class StoreProjectRequest extends FormRequest
 
         $this->merge([
             'slug' => Str::slug((string) $this->input('slug', $this->input('title'))),
+            'image_url' => trim((string) $this->input('image_url')) ?: null,
             'technologies' => is_array($technologies)
                 ? array_values(array_filter(array_map(
                     static fn (mixed $technology): string => trim((string) $technology),

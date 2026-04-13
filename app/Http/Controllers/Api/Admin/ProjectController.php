@@ -10,6 +10,8 @@ use App\Models\Project;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 
 class ProjectController extends Controller
@@ -62,7 +64,13 @@ class ProjectController extends Controller
     {
         $this->authorize('create', Project::class);
 
-        $project = Project::query()->create($request->validated());
+        $attributes = $request->safe()->except('image');
+
+        if ($request->hasFile('image')) {
+            $attributes['image_url'] = $this->storeUploadedImage($request->file('image'));
+        }
+
+        $project = Project::query()->create($attributes);
 
         return (new ProjectResource($project))
             ->response()
@@ -80,7 +88,22 @@ class ProjectController extends Controller
     {
         $this->authorize('update', $project);
 
-        $project->update($request->validated());
+        $attributes = $request->safe()->except(['image', 'remove_image']);
+
+        if (($request->boolean('remove_image') || $request->has('image_url')) && ! $request->hasFile('image')) {
+            $this->deleteStoredImageFromUrl($project->image_url);
+
+            if ($request->boolean('remove_image')) {
+                $attributes['image_url'] = null;
+            }
+        }
+
+        if ($request->hasFile('image')) {
+            $this->deleteStoredImageFromUrl($project->image_url);
+            $attributes['image_url'] = $this->storeUploadedImage($request->file('image'));
+        }
+
+        $project->update($attributes);
 
         return new ProjectResource($project->refresh());
     }
@@ -89,8 +112,35 @@ class ProjectController extends Controller
     {
         $this->authorize('delete', $project);
 
+        $this->deleteStoredImageFromUrl($project->image_url);
         $project->delete();
 
         return response()->noContent();
+    }
+
+    private function storeUploadedImage(UploadedFile $file): string
+    {
+        $path = $file->store('projects', 'public');
+
+        return Storage::disk('public')->url($path);
+    }
+
+    private function deleteStoredImageFromUrl(?string $url): void
+    {
+        if (! is_string($url) || trim($url) === '') {
+            return;
+        }
+
+        $path = parse_url($url, PHP_URL_PATH);
+
+        if (! is_string($path) || ! str_starts_with($path, '/storage/')) {
+            return;
+        }
+
+        $diskPath = ltrim(substr($path, strlen('/storage/')), '/');
+
+        if ($diskPath !== '') {
+            Storage::disk('public')->delete($diskPath);
+        }
     }
 }

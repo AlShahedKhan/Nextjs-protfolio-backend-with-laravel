@@ -22,7 +22,9 @@ class UpdateProjectRequest extends StoreProjectRequest
                 Rule::unique('projects', 'slug')->ignore($this->route('project')),
             ],
             'description' => ['sometimes', 'string'],
+            'image' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'image_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
+            'remove_image' => ['sometimes', 'boolean'],
             'technologies' => ['sometimes', 'array', 'min:1'],
             'technologies.*' => ['required_with:technologies', 'string', 'max:100', 'distinct'],
             'live_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
@@ -46,6 +48,14 @@ class UpdateProjectRequest extends StoreProjectRequest
 
         if ($this->has('slug')) {
             $updates['slug'] = Str::slug((string) $this->input('slug'));
+        }
+
+        if ($this->has('image_url')) {
+            $updates['image_url'] = trim((string) $this->input('image_url')) ?: null;
+        }
+
+        if ($this->has('remove_image')) {
+            $updates['remove_image'] = filter_var($this->input('remove_image'), FILTER_VALIDATE_BOOL);
         }
 
         if (is_array($technologies)) {

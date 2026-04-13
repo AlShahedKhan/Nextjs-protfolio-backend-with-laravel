@@ -2,6 +2,8 @@
 
 use App\Models\Project;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
 function projectPayload(array $overrides = []): array
@@ -54,6 +56,31 @@ it('allows an admin to create a project', function () {
     ]);
 });
 
+it('allows an admin to upload a project image file', function () {
+    Storage::fake('public');
+    Sanctum::actingAs(User::factory()->admin()->create());
+
+    $payload = projectPayload([
+        'slug' => 'orfa-ai-upload',
+    ]);
+    unset($payload['image_url']);
+    $payload['image'] = UploadedFile::fake()->image('orfa-ai.jpg', 1200, 675);
+
+    $response = $this->post('/api/v1/admin/projects', $payload, [
+        'Accept' => 'application/json',
+    ]);
+
+    $response
+        ->assertCreated()
+        ->assertJsonPath('data.slug', 'orfa-ai-upload');
+
+    $project = Project::query()->firstWhere('slug', 'orfa-ai-upload');
+
+    expect($project)->not->toBeNull();
+    expect($project->image_url)->toContain('/storage/projects/');
+    expect(Storage::disk('public')->allFiles('projects'))->toHaveCount(1);
+});
+
 it('returns a paginated project list for admins', function () {
     Sanctum::actingAs(User::factory()->admin()->create());
     Project::factory()->count(3)->create();
@@ -104,6 +131,37 @@ it('allows an admin to update a project', function () {
         'title' => 'Orfa AI Platform',
         'featured' => false,
     ]);
+});
+
+it('allows replacing and removing a project image file', function () {
+    Storage::fake('public');
+    Sanctum::actingAs(User::factory()->admin()->create());
+
+    $firstImagePath = UploadedFile::fake()->image('first.jpg')->store('projects', 'public');
+    $project = Project::factory()->create([
+        'slug' => 'orfa-ai-with-image',
+        'image_url' => Storage::disk('public')->url($firstImagePath),
+    ]);
+
+    $updateResponse = $this->patch('/api/v1/admin/projects/orfa-ai-with-image', [
+        'image' => UploadedFile::fake()->image('replacement.jpg', 1200, 675),
+    ], [
+        'Accept' => 'application/json',
+    ]);
+
+    $updateResponse->assertOk();
+
+    $project->refresh();
+
+    expect($project->image_url)->toContain('/storage/projects/');
+    expect(Storage::disk('public')->exists($firstImagePath))->toBeFalse();
+
+    $this->patchJson('/api/v1/admin/projects/orfa-ai-with-image', [
+        'remove_image' => true,
+    ])->assertOk();
+
+    expect($project->fresh()->image_url)->toBeNull();
+    expect(Storage::disk('public')->allFiles('projects'))->toHaveCount(0);
 });
 
 it('allows an admin to delete a project', function () {
